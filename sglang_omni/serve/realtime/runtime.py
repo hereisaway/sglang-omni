@@ -39,7 +39,12 @@ from sglang_omni.serve.realtime.control import (
     Updated,
 )
 from sglang_omni.serve.realtime.negotiation import SessionNegotiation
-from sglang_omni.serve.realtime.output import OutputEvent, ResponseStatus, TurnFailure
+from sglang_omni.serve.realtime.output import (
+    OutputEvent,
+    ResponseStatus,
+    TurnFailure,
+    VideoDelta,
+)
 from sglang_omni.serve.realtime.output_buffer import OutputBuffer
 from sglang_omni.serve.realtime.schema import (
     GrantedCapabilities,
@@ -195,6 +200,11 @@ class SessionRuntime:
             return
         elif isinstance(event, TurnFailure):
             self.fail(event.message, event.code)
+        elif (
+            isinstance(event, VideoDelta)
+            and event.format != self.capabilities.output_video_format
+        ):
+            raise ValueError("producer video format differs from deployment")
         else:
             producing_unit = unit or self.processing_unit.get()
             modalities = (

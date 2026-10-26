@@ -16,6 +16,7 @@ from pydantic import (
 )
 from typing_extensions import TypedDict
 
+from sglang_omni.proto.streams import VideoFrameFormat
 from sglang_omni.serve.realtime.reference_audio import (
     MAX_REFERENCE_AUDIO_BYTES,
     normalize_reference_wav,
@@ -41,6 +42,10 @@ class ImageFormat(TypedDict):
     max_bytes: int
     max_frames_per_unit: int
     max_slice_nums: int
+
+
+class VideoFormat(TypedDict):
+    type: VideoFrameFormat
 
 
 class TurnDetectionConfig(TypedDict, total=False):
@@ -166,6 +171,7 @@ class GrantedCapabilities(TypedDict, total=False):
     input_image_format: ImageFormat
     input_audio_format: AudioFormat
     output_audio_format: AudioFormat
+    output_video_format: VideoFormat
     native_unit_ms: int
     first_unit_ms: int
     microturn_ms: str | float | None

@@ -20,6 +20,7 @@ from sglang_omni.serve.realtime.constants import (
     CLOSE_REASON_SESSION_IDLE_TIMEOUT,
     CLOSE_REASON_SESSION_OPEN_TIMEOUT,
 )
+from sglang_omni.proto.streams import VideoFrameFormat
 from sglang_omni.serve.realtime.control import ControlEvent
 from sglang_omni.serve.realtime.output import OutputEvent
 from sglang_omni.serve.realtime.schema import (
@@ -34,7 +35,7 @@ DEFAULT_SAMPLE_RATE_HZ = 16000
 PCM16_BYTES_PER_SAMPLE = 2
 MS_PER_SECOND = 1000
 MAX_BUFFERED_INPUT_S = 60
-SUPPORTED_OUTPUT_MODALITIES = frozenset({"text", "audio"})
+SUPPORTED_OUTPUT_MODALITIES = frozenset({"text", "audio", "video"})
 
 
 class ProtocolError(ValueError):
@@ -128,6 +129,7 @@ class Capabilities:
     # note (Junnan Li): Frame cap per unit, indexed by the session's max_slice_nums minus one.
     image_frames_per_unit: tuple[int, ...] = (1,)
     default_max_slice_nums: int = 1
+    output_video_format: VideoFrameFormat = "image/jpeg"
 
     def __post_init__(self) -> None:
         if self.interaction not in get_args(Interaction):
@@ -153,6 +155,8 @@ class Capabilities:
             raise ValueError("unsupported output modalities")
         elif self.max_granted_modalities < 1 or not self.turn_control:
             raise ValueError("a grant needs one modality and one turn control")
+        elif self.output_video_format not in get_args(VideoFrameFormat):
+            raise ValueError("video output requires JPEG or PNG frames")
         else:
             pass
 
@@ -196,6 +200,10 @@ class Capabilities:
 
         if self.voices:
             granted["voices"] = list(self.voices)
+        else:
+            pass
+        if "video" in self.output_modalities:
+            granted["output_video_format"] = dict(type=self.output_video_format)
         else:
             pass
         if "image" in self.input_modalities:
