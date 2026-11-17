@@ -6,7 +6,7 @@ Duo consumes video and speech, produces Intent hidden states with Qwen3-VL, and 
 
 Install this checkout with its pinned SGLang dependencies. This branch follows main's SGLang 0.5.23 and Torch 2.14.1 requirements; do not substitute an older serving environment without checking runtime compatibility.
 
-The model-specific tokenizer protocol, checkpoint reader, and causal sampler are provided by the Duo model sources. Obtain the inference model sources from [Duo](https://github.com/inclusionAI/Duo), then set `DUO_MODEL_SOURCE` to the directory containing `torchtitan`, `data`, and `tools/ckpt_to_oss/duo_protocol.py`. For the Duo inference release layout this is `third_party/duo`. Use the model-provider revision matching the checkpoint; this is a model dependency, not a dependency on vLLM.
+The model-specific tokenizer protocol, checkpoint reader, and causal sampler are provided by the Duo model sources. Obtain the matching Duo inference source bundle from [Duo](https://github.com/inclusionAI/Duo), then set `DUO_MODEL_SOURCE` to the directory containing `torchtitan`, `data`, and `tools/ckpt_to_oss/duo_protocol.py`. For the Duo inference release layout this is `third_party/duo`. Use the model-provider revision matching the checkpoint; this is a model dependency, not a dependency on vLLM.
 
 ```bash
 export DUO_MODEL_SOURCE=/path/to/Duo/third_party/duo
@@ -18,13 +18,13 @@ pip install peft tyro
 
 Obtain [Duo-1.0-causal-base](https://huggingface.co/inclusionAI/Duo-1.0-causal-base) and [Duo-1.0-distill](https://huggingface.co/inclusionAI/Duo-1.0-distill). The optional [quantized release](https://huggingface.co/inclusionAI/Duo-1.0-distill-quant) supplies FP8 Linear weights. FP8 Linear does not imply FP8 Attention.
 
-Prepare the checkpoint metadata and Codec layout without modifying tensors. Use the Codec YAML files supplied with the model, not replacement JSON files. The RoPE and AdaLN selections must match the checkpoint's reference inference configuration.
+Prepare the checkpoint metadata and Codec layout without modifying tensors. Use the Codec YAML files from the matching Duo model source, not replacement JSON files. The RoPE and AdaLN selections must match the checkpoint's reference inference configuration.
 
 ```bash
 python scripts/prepare_duo_models.py \
   --release /models/Duo-1.0-distill \
   --base-release /models/Duo-1.0-causal-base \
-  --codec-config-dir /path/to/released/codec/configs \
+  --codec-config-dir /path/to/Duo/duo/models/realization/modules/native_vae \
   --output /models/prepared-duo \
   --rope new --adaln-timestep new
 python scripts/merge_duo_intent_adapter.py \
