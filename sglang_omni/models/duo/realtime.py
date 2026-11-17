@@ -133,7 +133,9 @@ class DuoRealtimeAdapter(InteractionAdapter):
         self.emit = emit
         self.config = config
         options = config.get("sglang", {}).get("realization", {})
-        self.decode_mode = resolve_duo_decode_mode(options.get("decode"))
+        self.decode_mode = resolve_duo_decode_mode(
+            options.get("decode", self.resources.decode_modes[0])
+        )
         if self.decode_mode not in self.resources.decode_modes:
             raise ValueError(
                 "The loaded Realization checkpoint does not support this decode mode"
@@ -1047,7 +1049,11 @@ def build_duo_realtime_deployment(resources: DuoLiveResources) -> RealtimeDeploy
         native_unit_ms=167,
         tail_policy="pad",
         supports_truncate=False,
-        default_max_slice_nums=1,
+        default_max_slice_nums=2 if resources.decode_modes == ("duo_5_17",) else 1,
+        input_samples_per_slice=(
+            DUO_DECODE_SPECS["duo_1_4"].input_audio_samples,
+            DUO_DECODE_SPECS["duo_5_17"].input_audio_samples,
+        ),
     )
     return RealtimeDeployment(
         capabilities=capabilities,

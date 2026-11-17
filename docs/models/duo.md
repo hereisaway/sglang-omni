@@ -27,7 +27,10 @@ python scripts/prepare_duo_models.py \
   --codec-config-dir /path/to/released/codec/configs \
   --output /models/prepared-duo \
   --rope new --adaln-timestep new
-python scripts/merge_duo_intent_adapter.py --help
+python scripts/merge_duo_intent_adapter.py \
+  --intent /models/Duo-1.0-causal-base/intent \
+  --intent-adapter /models/Duo-1.0-causal-base/intent_adapter \
+  --output /models/duo-intent-merged
 ```
 
 Merge the matching Intent adapter before launching native Qwen TP workers. Keep its tokenizer and protocol manifest with the merged model. Do not substitute an unrelated Qwen checkpoint or adapter when comparing generation quality.

@@ -327,7 +327,7 @@ def main() -> None:
     )
 
     @app.get("/duo/configuration")
-    def realization_configuration() -> dict[str, str | bool | int]:
+    def realization_configuration() -> dict[str, str | bool | int | float]:
         prefix, suffix = resources.hooks.planner.system_prompt_fragments()
         return {
             "realization_kv_reset_interval_seconds": resources.realization_kv_reset_interval_seconds,

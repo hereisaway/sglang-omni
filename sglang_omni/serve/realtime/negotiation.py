@@ -222,26 +222,22 @@ class SessionNegotiation:
     ) -> tuple[SessionConfiguration, GrantedCapabilities]:
         granted = self.capabilities.to_granted_capabilities()
         if "image" in self.capabilities.input_modalities:
-            realization = candidate.get("sglang", {}).get("realization", {})
-            default_slice_count = (
-                2
-                if realization.get("decode") == "duo_5_17"
-                else self.capabilities.default_max_slice_nums
-            )
             slice_count = candidate.get("sglang", {}).get(
-                "max_slice_nums", default_slice_count
+                "max_slice_nums", self.capabilities.default_max_slice_nums
             )
             granted["input_image_format"]["max_frames_per_unit"] = (
                 self.capabilities.image_frames_per_unit[slice_count - 1]
             )
         else:
             pass
-        if (
-            candidate.get("sglang", {}).get("realization", {}).get("decode")
-            == "duo_5_17"
-        ):
-            granted["native_unit_ms"] = round(1000 * 17 / 24)
-            granted["first_unit_ms"] = round(1000 * 17 / 24)
+        if self.capabilities.input_samples_per_slice:
+            duration_ms = round(
+                self.capabilities.input_duration_ms(
+                    self.capabilities.input_unit_samples(candidate)
+                )
+            )
+            granted["native_unit_ms"] = duration_ms
+            granted["first_unit_ms"] = duration_ms
         else:
             pass
         granted.update(

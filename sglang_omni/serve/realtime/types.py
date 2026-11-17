@@ -129,6 +129,7 @@ class Capabilities:
     # note (Junnan Li): Frame cap per unit, indexed by the session's max_slice_nums minus one.
     image_frames_per_unit: tuple[int, ...] = (1,)
     default_max_slice_nums: int = 1
+    input_samples_per_slice: tuple[int, ...] = ()
     output_video_format: VideoFrameFormat = "image/jpeg"
 
     def __post_init__(self) -> None:
@@ -146,6 +147,13 @@ class Capabilities:
             raise ValueError("positive image byte and frame limits required")
         elif not 1 <= self.default_max_slice_nums <= len(self.image_frames_per_unit):
             raise ValueError("default slice count exceeds the slice limit")
+        elif self.input_samples_per_slice and (
+            len(self.input_samples_per_slice) != len(self.image_frames_per_unit)
+            or min(self.input_samples_per_slice) <= 0
+        ):
+            raise ValueError(
+                "Input sample counts must match positive image slice cadences"
+            )
         elif self.tail_policy not in get_args(TailPolicy):
             raise ValueError("unsupported tail policy")
         elif (
@@ -166,6 +174,15 @@ class Capabilities:
             self.input_sample_rate_hz * self.native_unit_ms // MS_PER_SECOND
         )
         return native_unit_samples * PCM16_BYTES_PER_SAMPLE
+
+    def input_unit_samples(self, configuration: SessionConfiguration) -> int:
+        if self.input_samples_per_slice:
+            slice_count = configuration.get("sglang", {}).get(
+                "max_slice_nums", self.default_max_slice_nums
+            )
+            return self.input_samples_per_slice[slice_count - 1]
+        else:
+            return self.native_unit_bytes // PCM16_BYTES_PER_SAMPLE
 
     def input_duration_ms(self, sample_count: int) -> float:
         return samples_to_ms(sample_count, self.input_sample_rate_hz)

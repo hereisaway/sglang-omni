@@ -104,7 +104,7 @@ class SessionRuntime:
         self.next_unit_index = 0
         # note (wenyao): A turn-based session ends turns with its own VAD, so holding audio until a unit fills would end turns up to a unit late.
         self.forwards_partial_units = capabilities.interaction == "turn_based"
-        self.unit_samples = capabilities.native_unit_bytes // PCM16_BYTES_PER_SAMPLE
+        self.unit_samples = capabilities.input_unit_samples({})
         self.open_unit_samples = 0
         self.open_unit_start_sample = 0
         self.cleared_unit_receipt: Unit | None = None
@@ -133,21 +133,6 @@ class SessionRuntime:
     @property
     def unit_ms(self) -> float:
         return self.capabilities.input_duration_ms(self.unit_samples)
-
-    def configure_unit_cadence(self, config: SessionConfiguration) -> None:
-        """Select the media unit size before the adapter starts consuming input."""
-        realization = config.get("sglang", {}).get("realization", {})
-        decode = realization.get("decode")
-        if decode == "duo_5_17":
-            self.unit_samples = round(self.capabilities.input_sample_rate_hz * 17 / 24)
-        elif "realization" in config.get("sglang", {}):
-            self.unit_samples = round(self.capabilities.input_sample_rate_hz * 4 / 24)
-        else:
-            self.unit_samples = (
-                self.capabilities.input_sample_rate_hz
-                * self.capabilities.native_unit_ms
-                // 1000
-            )
 
     @property
     def pending_samples(self) -> int:
@@ -261,7 +246,7 @@ class SessionRuntime:
                 self.config, self.state, patch
             )
             if self.state == "CREATED":
-                self.configure_unit_cadence(candidate)
+                self.unit_samples = self.capabilities.input_unit_samples(candidate)
                 adapter = self.adapter_factory()
                 adapter.set_limits(self.limits)
                 self.is_admitting = True

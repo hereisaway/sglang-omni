@@ -35,15 +35,15 @@ from sglang_omni.serve.realtime.output import (
 from sglang_omni.serve.realtime.output_buffer import OutputBuffer
 from sglang_omni.serve.realtime.session_bridge import SessionBridge, capabilities_of
 from sglang_omni.serve.realtime.types import Capabilities, RuntimeLimits
-from tests.unit_test.fixtures.realtime_fakes import HealthCoordinator, ScriptedAdapter
-from tests.unit_test.fixtures.session_client import PORTS, FakeSessionClient
-from tests.unit_test.serve.test_realtime_duplex_session import (
+from tests.unit_test.fixtures.realtime_client import (
     UNIT_BYTES,
     append_audio,
     build_test_client,
     receive_until,
     send_event,
 )
+from tests.unit_test.fixtures.realtime_fakes import HealthCoordinator, ScriptedAdapter
+from tests.unit_test.fixtures.session_client import PORTS, FakeSessionClient
 
 
 @pytest.fixture
@@ -367,3 +367,29 @@ def test_video_format_mismatch_closes_session(png_frame: bytes) -> None:
             assert any(e["type"] == "error" for e in events)
             assert not any(e["type"] == "sglang.response.video.delta" for e in events)
     assert adapter.is_closed
+
+
+@pytest.mark.parametrize("slice_count,sample_count", [(1, 2667), (2, 11333)])
+def test_fractional_video_cadence_cuts_exact_audio_samples(
+    slice_count: int, sample_count: int
+) -> None:
+    """Rounding 17/24 seconds to integer milliseconds used to cut input early."""
+    adapter = ScriptedAdapter(reply=[ResponseStarted("response"), ResponseFinished("response")])
+    capabilities = Capabilities(
+        input_modalities=("audio", "image"),
+        image_frames_per_unit=(4, 17),
+        input_samples_per_slice=(2667, 11333),
+    )
+    pcm = b"\x01\x02" * (sample_count * 2)
+    with build_test_client(adapter, capabilities=capabilities) as client:
+        with client.websocket_connect("/v1/realtime") as websocket:
+            assert websocket.receive_json()["type"] == "session.created"
+            send_event(websocket, "session.update", session={"sglang": {"max_slice_nums": slice_count}})
+            updated = receive_until(websocket, "session.updated")[-1]
+            assert updated["session"]["sglang"]["granted"]["native_unit_ms"] == round(sample_count / 16)
+            append_audio(websocket, pcm, 0)
+            receive_until(websocket, "response.done")
+            receive_until(websocket, "response.done")
+    assert [unit.real_samples for unit in adapter.units] == [sample_count, sample_count]
+    assert [unit.start_sample for unit in adapter.units] == [0, sample_count]
+    assert b"".join(unit.pcm for unit in adapter.units) == pcm
