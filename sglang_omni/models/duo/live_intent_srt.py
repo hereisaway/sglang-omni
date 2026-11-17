@@ -16,14 +16,15 @@ from typing import ClassVar, Literal
 import numpy as np
 import torch
 from sglang.srt.utils.common import freeze_gc
-from sglang_omni.models.duo.intent_srt import IntentH50Worker, SRTPlan
-from sglang_omni.models.duo.live_intent import IntentVisual, LiveIntentState, LivePlan
-from sglang_omni.models.duo.reference import FrameIntentPlanner
-from sglang_omni.utils.connection import find_available_port
 from torchtitan.models.duo_realization.modules.intent import SPECIALS, prepare_tokenizer
 from transformers import AutoConfig, AutoProcessor
 from transformers.models.qwen3_vl.configuration_qwen3_vl import Qwen3VLConfig
 from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLModel
+
+from sglang_omni.models.duo.intent_srt import IntentH50Worker, SRTPlan
+from sglang_omni.models.duo.live_intent import IntentVisual, LiveIntentState, LivePlan
+from sglang_omni.models.duo.reference import FrameIntentPlanner
+from sglang_omni.utils.connection import find_available_port
 
 
 @dataclass(frozen=True)

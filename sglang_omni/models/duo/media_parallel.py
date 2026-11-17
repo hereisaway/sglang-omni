@@ -24,6 +24,7 @@ from sglang.multimodal_gen.runtime.layers.attention.selector import (
 from sglang.multimodal_gen.runtime.platforms import AttentionBackendEnum
 from sglang.multimodal_gen.runtime.server_args import ServerArgs, set_global_server_args
 from sglang.srt.utils.common import freeze_gc
+
 from sglang_omni.models.duo.media import DuoCodecs
 from sglang_omni.models.duo.modes import DuoDecodeMode
 

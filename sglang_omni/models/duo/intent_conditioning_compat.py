@@ -10,17 +10,19 @@ planner so its KV state remains append-only.
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Any
 
 import numpy as np
 import torch
+from transformers import PreTrainedTokenizerBase, Qwen3VLProcessor
 
 SPECIALS = ["<wait>"] + [
     f"<emo_{name}>" for name in ("neutral", "happy", "sad", "angry")
 ]
 
 
-def _video_batch(processor: Any, frames: np.ndarray) -> dict[str, torch.Tensor]:
+def video_batch(
+    processor: Qwen3VLProcessor, frames: np.ndarray
+) -> dict[str, torch.Tensor]:
     """Run the local processor on one RGB clip."""
 
     clip = np.asarray(frames)
@@ -28,6 +30,8 @@ def _video_batch(processor: Any, frames: np.ndarray) -> dict[str, torch.Tensor]:
         raise ValueError(
             f"expected [frames,height,width,3] RGB input, got {clip.shape}"
         )
+    else:
+        pass
     messages = [
         {
             "role": "user",
@@ -55,8 +59,10 @@ def _video_batch(processor: Any, frames: np.ndarray) -> dict[str, torch.Tensor]:
     }
 
 
-def visual_patch(processor: Any, frames: np.ndarray) -> dict[str, Any]:
-    result = _video_batch(processor, frames)
+def visual_patch(
+    processor: Qwen3VLProcessor, frames: np.ndarray
+) -> dict[str, torch.Tensor | np.ndarray | Qwen3VLProcessor]:
+    result = video_batch(processor, frames)
     return {
         **result,
         "frames": np.asarray(frames, dtype=np.uint8).copy(),
@@ -66,7 +72,7 @@ def visual_patch(processor: Any, frames: np.ndarray) -> dict[str, Any]:
 
 def serialize(
     record: dict[str, object],
-    tokenizer: Any,
+    tokenizer: PreTrainedTokenizerBase,
     visuals: dict[tuple[str, int], dict[str, object]],
     *,
     stop_block: int,
@@ -85,7 +91,7 @@ def serialize(
     messages: list[dict[str, object]] = []
     videos: list[np.ndarray] = []
     blocks = record.get("blocks", [])
-    text_tokens = record.get("canonical", {}).get("text_tokens", [])  # type: ignore[union-attr]
+    text_tokens = record.get("canonical", {}).get("text_tokens", [])
     for index in range(stop_block + 1):
         visual = visuals["user", index]
         frames = np.asarray(visual["frames"], dtype=np.uint8)
@@ -99,6 +105,8 @@ def serialize(
         content: list[dict[str, object]] = [{"type": "video", "video": frames}]
         if block_text:
             content.append({"type": "text", "text": block_text})
+        else:
+            pass
         messages.append({"role": "user", "content": content})
         body = assistant_bodies.get(index)
         if body:
@@ -108,11 +116,15 @@ def serialize(
                     "content": tokenizer.decode(body, skip_special_tokens=False),
                 }
             )
+        else:
+            pass
     try:
         prompt = visuals["user", stop_block].get("processor_prompt")
         processor = visuals["user", stop_block].get("processor")
         if processor is None:
             raise ValueError
+        else:
+            pass
         encoded = processor.apply_chat_template(
             messages,
             tokenize=True,

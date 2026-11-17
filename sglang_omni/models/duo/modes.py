@@ -45,6 +45,7 @@ DUO_DECODE_SPECS: dict[DuoDecodeMode, DuoDecodeSpec] = {
 def resolve_duo_decode_mode(value: object) -> DuoDecodeMode:
     if value in (None, "old", "duo_1_4"):
         return "duo_1_4"
-    if value == "duo_5_17":
+    elif value == "duo_5_17":
         return "duo_5_17"
-    raise ValueError("sglang.realization.decode must be one of duo_1_4 or duo_5_17")
+    else:
+        raise ValueError("sglang.realization.decode must be one of duo_1_4 or duo_5_17")

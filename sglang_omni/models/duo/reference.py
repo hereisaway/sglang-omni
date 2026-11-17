@@ -1,7 +1,5 @@
 """Reference DCP backend for the Duo 5-to-17 pipeline."""
 
-from sglang.multimodal_gen.runtime.distributed.parallel_state import maybe_init_distributed_environment_and_model_parallel
-from sglang_omni.models.duo.native_dcp import native_dcp_from_reference
 import json
 import logging
 import time
@@ -21,20 +19,9 @@ from data.dataloader_realization import RealizationSequence
 from data.dataloader_realization_sequence import block_seed
 from data.inference_budget import budget_index, cost
 from data.inference_options import ROLLING_MEDIA_CACHE_POLICY
-from sglang_omni.models.duo.kernels import use_realization_kernels
-from sglang_omni.models.duo.streaming import LiveSessionInput
-from sglang_omni.models.duo.live_intent import (
-    IntentVisual,
-    LiveIntentPlanner,
-    LiveIntentState,
+from sglang.multimodal_gen.runtime.distributed.parallel_state import (
+    maybe_init_distributed_environment_and_model_parallel,
 )
-from sglang_omni.models.duo.model import RealizationSegment
-from sglang_omni.models.duo.modelopt import native_dcp_from_modelopt
-from sglang_omni.models.duo.native_dcp import CachedTimestepModel, NativeDCPRealization
-from sglang_omni.models.duo.native_execution import NativeDCPOptions
-from sglang_omni.proto.request import OmniRequest, StagePayload
-from sglang_omni.proto.session import ResourceUsage, SessionIdentity, TimedChunk
-from sglang_omni.scheduling.session import SessionContext, SessionHooks
 from torchtitan.components.inferencer_realization import (
     RealizationInferencer,
     load_model,
@@ -48,6 +35,25 @@ from torchtitan.models.duo_realization.pipelines.streaming import (
 )
 from torchtitan.models.duo_realization.schedulers.dmd import rollout_grid
 from torchtitan.models.duo_realization.schedulers.flow import add_noise, to_x0
+
+from sglang_omni.models.duo.kernels import use_realization_kernels
+from sglang_omni.models.duo.live_intent import (
+    IntentVisual,
+    LiveIntentPlanner,
+    LiveIntentState,
+)
+from sglang_omni.models.duo.model import RealizationSegment
+from sglang_omni.models.duo.modelopt import native_dcp_from_modelopt
+from sglang_omni.models.duo.native_dcp import (
+    CachedTimestepModel,
+    NativeDCPRealization,
+    native_dcp_from_reference,
+)
+from sglang_omni.models.duo.native_execution import NativeDCPOptions
+from sglang_omni.models.duo.streaming import LiveSessionInput
+from sglang_omni.proto.request import OmniRequest, StagePayload
+from sglang_omni.proto.session import ResourceUsage, SessionIdentity, TimedChunk
+from sglang_omni.scheduling.session import SessionContext, SessionHooks
 
 logger = logging.getLogger(__name__)
 

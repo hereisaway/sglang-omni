@@ -6,6 +6,7 @@ import torch
 from sglang.multimodal_gen.runtime.layers.kvcache.causal_attention_cache import (
     CausalSelfAttentionKVCache,
 )
+
 from sglang_omni.models.duo.sequence import AttentionSpan
 
 

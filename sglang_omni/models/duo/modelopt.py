@@ -23,8 +23,9 @@ from sglang.multimodal_gen.runtime.models.dits.minimax_h3 import (
     MiniMaxH3DiTModel,
     _reorder_grouped_qkv_to_qkv,
 )
-from sglang_omni.models.duo.native_dcp import NativeDCPRealization, shard_column
 from torch import nn
+
+from sglang_omni.models.duo.native_dcp import NativeDCPRealization, shard_column
 
 logger = logging.getLogger(__name__)
 

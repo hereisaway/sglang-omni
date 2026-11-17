@@ -13,6 +13,7 @@ from sglang_omni.proto.session import (
     DEFAULT_IDLE_TIMEOUT_S,
     DEFAULT_SESSION_UPDATE_TIMEOUT_S,
 )
+from sglang_omni.proto.streams import VideoFrameFormat
 from sglang_omni.serve.realtime.constants import (
     CLOSE_REASON_CONTEXT_LIMIT,
     CLOSE_REASON_INTERNAL,
@@ -20,7 +21,6 @@ from sglang_omni.serve.realtime.constants import (
     CLOSE_REASON_SESSION_IDLE_TIMEOUT,
     CLOSE_REASON_SESSION_OPEN_TIMEOUT,
 )
-from sglang_omni.proto.streams import VideoFrameFormat
 from sglang_omni.serve.realtime.control import ControlEvent
 from sglang_omni.serve.realtime.output import OutputEvent
 from sglang_omni.serve.realtime.schema import (
@@ -123,7 +123,6 @@ class Capabilities:
     voices: tuple[str, ...] = ()
     supports_instruction_updates: bool = False
     supports_sampling_updates: bool = False
-    supports_realization_kv_reset: bool = False
     supports_truncate: bool = False
     supports_cancel: bool = False
     supports_client_commit: bool = False

@@ -7,6 +7,7 @@ from typing import Protocol
 
 import torch
 from sglang.multimodal_gen.runtime.distributed.parallel_state import get_ulysses_ctx
+
 from sglang_omni.models.duo.cache import RealizationKVCache
 from sglang_omni.models.duo.model import (
     CausalRealizationModel,
@@ -396,5 +397,3 @@ class LiveSessionInput:
 
 def discard_latents(chunk: TimedChunk) -> None:
     """The live owner emits decoded media instead of the internal latent event."""
-
-

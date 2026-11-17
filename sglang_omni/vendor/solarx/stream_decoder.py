@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Latent-by-latent streaming decode for the MiniMax H3 video VAE.
 
 The official decoder is a bidirectional ViT over windows of 7 latents with stride 5, so

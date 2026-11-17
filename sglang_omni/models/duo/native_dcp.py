@@ -49,6 +49,20 @@ from sglang.multimodal_gen.runtime.models.dits.minimax_h3 import (
     _modulate_rmsnorm_scale_shift,
     _rope_cos_sin_cache,
 )
+from torch import nn
+from torch.nn import functional as F
+from torchtitan.models.duo_realization.modules.adaln_timestep import (
+    build_adaln_timestep_indices,
+)
+from torchtitan.models.duo_realization.modules.decfg import DeCFGLinear
+from torchtitan.models.duo_realization.modules.kv_cache import (
+    KVCache,
+    LayerKV,
+    commit_rows,
+)
+from torchtitan.models.duo_realization.modules.masks import visible
+from torchtitan.models.duo_realization.modules.model import RealizationTransformer
+
 from sglang_omni.models.duo.fp8_execution import (
     CalibratedFP8Workspace,
     FP8AttentionCalibration,
@@ -69,19 +83,6 @@ from sglang_omni.models.duo.ring import (
     ring_plan,
 )
 from sglang_omni.platforms.device_graph import CudaDeviceGraphBackend, ReplayableGraph
-from torch import nn
-from torch.nn import functional as F
-from torchtitan.models.duo_realization.modules.adaln_timestep import (
-    build_adaln_timestep_indices,
-)
-from torchtitan.models.duo_realization.modules.decfg import DeCFGLinear
-from torchtitan.models.duo_realization.modules.kv_cache import (
-    KVCache,
-    LayerKV,
-    commit_rows,
-)
-from torchtitan.models.duo_realization.modules.masks import visible
-from torchtitan.models.duo_realization.modules.model import RealizationTransformer
 
 
 class AdapterDelta(nn.Module):

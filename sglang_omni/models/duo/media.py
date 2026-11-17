@@ -34,6 +34,7 @@ from sglang.multimodal_gen.runtime.models.vaes.minimax_h3_video_vae.klvae import
     get_tile_parallel_state,
 )
 from sglang.multimodal_gen.runtime.platforms import AttentionBackendEnum
+
 from sglang_omni.models.duo.modes import DuoDecodeMode
 from sglang_omni.vendor.solarx import TileStreamingDecoder
 

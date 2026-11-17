@@ -383,15 +383,11 @@ class SessionRuntime:
                 )
             else:
                 pass
-            pending_unit_count_before = (
-                self.uncut_unit_bytes // self.unit_bytes
-            )
+            pending_unit_count_before = self.uncut_unit_bytes // self.unit_bytes
             self.pending_pcm.extend(pcm)
             self.accepted_samples += len(pcm) // PCM16_BYTES_PER_SAMPLE
             self.next_append_sequence += 1
-            pending_unit_count_after = (
-                self.uncut_unit_bytes // self.unit_bytes
-            )
+            pending_unit_count_after = self.uncut_unit_bytes // self.unit_bytes
             newly_ready_unit_count = (
                 pending_unit_count_after - pending_unit_count_before
             )
@@ -418,13 +414,9 @@ class SessionRuntime:
             pending_start_ms = self.capabilities.input_duration_ms(
                 self.accepted_samples - self.pending_samples - self.open_unit_samples
             )
-            pending_unit_offset = math.floor(
-                (t_ms - pending_start_ms) / self.unit_ms
-            )
+            pending_unit_offset = math.floor((t_ms - pending_start_ms) / self.unit_ms)
             unit_index = self.next_unit_index + pending_unit_offset
-            pending_units = math.ceil(
-                self.uncut_unit_bytes / self.unit_bytes
-            )
+            pending_units = math.ceil(self.uncut_unit_bytes / self.unit_bytes)
             if "image" not in self.capabilities.input_modalities:
                 raise ProtocolError("not_supported", "image input is not granted")
             elif self.is_input_ended:
@@ -527,12 +519,8 @@ class SessionRuntime:
             else:
                 pass
             self.is_input_ended = True
-            pending_unit_count = (
-                self.uncut_unit_bytes // self.unit_bytes
-            )
-            has_partial_unit = bool(
-                self.uncut_unit_bytes % self.unit_bytes
-            )
+            pending_unit_count = self.uncut_unit_bytes // self.unit_bytes
+            has_partial_unit = bool(self.uncut_unit_bytes % self.unit_bytes)
             if has_partial_unit:
                 self.mark_ready_units(self.next_unit_index + pending_unit_count, 1)
             elif not pending_unit_count:
@@ -637,8 +625,7 @@ class SessionRuntime:
                         and (
                             not self.pending_pcm
                             if self.forwards_partial_units
-                            else len(self.pending_pcm)
-                            < self.unit_bytes
+                            else len(self.pending_pcm) < self.unit_bytes
                         )
                     ):
                         continue

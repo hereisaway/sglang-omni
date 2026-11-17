@@ -1,11 +1,11 @@
 """Causal Realization forwards using the native Diffusion projections and transformer layers."""
 
-from sgl_kernel.flash_attn import flash_attn_with_kvcache
 from dataclasses import dataclass
 from typing import Literal
 from weakref import WeakKeyDictionary
 
 import torch
+from sgl_kernel.flash_attn import flash_attn_with_kvcache
 from sglang.multimodal_gen.configs.models.dits.minimax_h3 import (
     MINIMAX_H3_ADALN_MODALITY_NUM,
 )
@@ -28,10 +28,11 @@ from sglang.multimodal_gen.runtime.models.dits.minimax_h3 import (
     _modulate_rmsnorm_scale_shift,
     _rope_cos_sin_cache,
 )
-from sglang_omni.models.duo.cache import RealizationKVCache
-from sglang_omni.models.duo.sequence import AttentionSpan, attention_mask
 from torch import nn
 from torch.nn import functional as F
+
+from sglang_omni.models.duo.cache import RealizationKVCache
+from sglang_omni.models.duo.sequence import AttentionSpan, attention_mask
 
 
 @dataclass(frozen=True, kw_only=True)

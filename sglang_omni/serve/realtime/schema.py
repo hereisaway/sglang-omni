@@ -80,7 +80,6 @@ class RealizationDescription(TypedDict, total=False):
 class RealizationSessionConfig(TypedDict, total=False):
     description: RealizationDescription
     seed: Annotated[int, Field(ge=0, le=4294967295)]
-    kv_reset_generation: Annotated[int, Field(ge=0)]
     sample_id: str
     decode: Literal["duo_1_4", "duo_5_17"]
     reference_image: str

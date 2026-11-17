@@ -6,8 +6,9 @@ from dataclasses import dataclass
 
 import torch
 import triton
-from sglang_omni.models.duo.fp8_kernels import encode_qkv
 from torchtitan.models.duo_realization.modules.kv_cache import LayerKV
+
+from sglang_omni.models.duo.fp8_kernels import encode_qkv
 
 
 class SM90FP8Attention:

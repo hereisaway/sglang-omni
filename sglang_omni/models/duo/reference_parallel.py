@@ -19,10 +19,11 @@ import torch
 import torch.distributed as distributed
 import torch.multiprocessing as multiprocessing
 from sglang.srt.utils.common import freeze_gc
-from sglang_omni.models.duo.streaming import discard_latents
+
 from sglang_omni.models.duo.model import RealizationSegment
 from sglang_omni.models.duo.native_execution import NativeDCPOptions
 from sglang_omni.models.duo.reference import DCPRealizationSessionHooks
+from sglang_omni.models.duo.streaming import discard_latents
 from sglang_omni.proto.request import OmniRequest, StagePayload
 from sglang_omni.proto.session import (
     ResourceUsage,

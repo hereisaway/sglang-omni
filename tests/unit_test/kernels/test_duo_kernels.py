@@ -14,6 +14,10 @@ from sgl_kernel.flash_attn import flash_attn_with_kvcache
 from sglang.multimodal_gen.runtime.server_args import (
     server_args as diffusion_server_args,
 )
+from transformers import Qwen3VLConfig, Qwen3VLForConditionalGeneration
+from transformers.models.qwen3_vl.configuration_qwen3_vl import Qwen3VLTextConfig
+from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLTextMLP
+
 from sglang_omni.models.duo.fp8_execution import SM90FP8Attention
 from sglang_omni.models.duo.fp8_kernels import rotate
 from sglang_omni.models.duo.kernels import (
@@ -23,9 +27,6 @@ from sglang_omni.models.duo.kernels import (
     use_realization_kernels,
 )
 from sglang_omni.models.duo.media import DuoCodecs
-from transformers import Qwen3VLConfig, Qwen3VLForConditionalGeneration
-from transformers.models.qwen3_vl.configuration_qwen3_vl import Qwen3VLTextConfig
-from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLTextMLP
 
 
 @pytest.mark.accelerator

@@ -13,6 +13,8 @@ import httpx
 import msgspec
 import numpy as np
 import torch
+from transformers import WhisperForConditionalGeneration, WhisperProcessor
+
 from sglang_omni.audio.wav import pcm16_wav
 from sglang_omni.models.duo.geometry import spatial_axis, video_rows
 from sglang_omni.models.duo.live_intent import LiveIntentPlanner
@@ -20,19 +22,21 @@ from sglang_omni.models.duo.media import DuoCodecs
 from sglang_omni.models.duo.model import RealizationSegment
 from sglang_omni.models.duo.modes import DUO_DECODE_SPECS, DuoDecodeMode, DuoDecodeSpec
 from sglang_omni.models.duo.sequence import AttentionSpan
-from sglang_omni.models.duo.streaming import LiveSessionInput, RealizationSessionHooks, discard_latents, segment_from_h50
+from sglang_omni.models.duo.streaming import (
+    LiveSessionInput,
+    RealizationSessionHooks,
+    discard_latents,
+    segment_from_h50,
+)
 from sglang_omni.models.streaming_cascade.recognizers import TranscriptionResult
 from sglang_omni.proto.request import OmniRequest, StagePayload
 from sglang_omni.proto.session import ResourceUsage, SessionIdentity, TimedChunk
 from sglang_omni.scheduling.session import SessionContext, SessionHooks
-from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
 logger = logging.getLogger(__name__)
 
 from sglang_omni.models.duo.reference import DCPRealizationSessionHooks
-from sglang_omni.models.duo.reference_parallel import (
-    ParallelDCPRealizationSessionHooks,
-)
+from sglang_omni.models.duo.reference_parallel import ParallelDCPRealizationSessionHooks
 
 
 @dataclass(kw_only=True)
@@ -522,6 +526,7 @@ class LiveDuoSessionHooks(SessionHooks):
         realization_done = time.monotonic()
         metrics = {
             "block": state.next_block,
+            "realization_kv_reset": int(observation.reset_realization_kv),
             "plan": plan.text,
             "user_text": user_text,
             "intent_kv_tokens": plan.kv_tokens,

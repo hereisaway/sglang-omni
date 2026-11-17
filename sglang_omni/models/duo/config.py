@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 from pydantic import Field
+
 from sglang_omni.config import FactoryArgs, PipelineConfig, PlacementConfig, StageConfig
 
 PACKAGE = "sglang_omni.models.duo"

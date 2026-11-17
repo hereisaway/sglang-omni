@@ -26,6 +26,18 @@ from sglang.multimodal_gen.runtime.layers.quantization.fp8 import (
     Fp8Config,
     Fp8LinearMethod,
 )
+from torchtitan.models.duo_realization.modules import intent_conditioning
+from torchtitan.models.duo_realization.modules.decfg import install_adapter
+from torchtitan.models.duo_realization.modules.intent import prepare_tokenizer
+from torchtitan.models.duo_realization.modules.kv_cache import (
+    KVCache,
+    LayerKV,
+    commit_rows,
+)
+from torchtitan.models.duo_realization.modules.model import RealizationTransformer
+from torchtitan.models.duo_realization.modules.weights import configure_trainables
+from torchtitan.models.duo_realization.pipelines.inference import sample_sequence
+
 from sglang_omni.models.duo.intent_srt import SRTPlan
 from sglang_omni.models.duo.live_intent_srt import (
     IntentPositions,
@@ -48,17 +60,6 @@ from sglang_omni.models.duo.reference import (
     TokenWindowMediaSession,
 )
 from sglang_omni.models.duo.ring import RingKVCache, ring_attention, ring_plan
-from torchtitan.models.duo_realization.modules import intent_conditioning
-from torchtitan.models.duo_realization.modules.decfg import install_adapter
-from torchtitan.models.duo_realization.modules.intent import prepare_tokenizer
-from torchtitan.models.duo_realization.modules.kv_cache import (
-    KVCache,
-    LayerKV,
-    commit_rows,
-)
-from torchtitan.models.duo_realization.modules.model import RealizationTransformer
-from torchtitan.models.duo_realization.modules.weights import configure_trainables
-from torchtitan.models.duo_realization.pipelines.inference import sample_sequence
 
 
 @pytest.mark.accelerator

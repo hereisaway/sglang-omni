@@ -2,21 +2,11 @@
 
 from __future__ import annotations
 
-from sglang.multimodal_gen.runtime.distributed.parallel_state import maybe_init_distributed_environment_and_model_parallel
-from sglang.multimodal_gen.runtime.layers.attention.selector import global_force_attn_backend
-from sglang.multimodal_gen.runtime.platforms import AttentionBackendEnum
-from sglang.multimodal_gen.runtime.server_args import ServerArgs, set_global_server_args
-from sglang_omni.models.duo.native_execution import NativeDCPOptions
-from sglang_omni.models.duo.reference import DCPRealizationSessionHooks, FrameIntentPlanner
-from torchtitan.components.inference_config_realization import parser, validate
-from torchtitan.models.duo_realization.modules.intent import load as load_reference_intent
-from sglang_omni.models.duo.live_intent_srt import SRTFrameIntentPlanner
-from sglang_omni.models.duo.reference_parallel import ParallelDCPRealizationSessionHooks
-from sglang_omni.models.duo.streaming import RealizationSessionHooks
 import asyncio
 import base64
 import io
 import logging
+import math
 import tempfile
 import threading
 from collections.abc import Callable
@@ -28,14 +18,35 @@ from typing import Literal
 import numpy as np
 import torch
 from PIL import Image, ImageOps
+from sglang.multimodal_gen.runtime.distributed.parallel_state import (
+    maybe_init_distributed_environment_and_model_parallel,
+)
+from sglang.multimodal_gen.runtime.layers.attention.selector import (
+    global_force_attn_backend,
+)
+from sglang.multimodal_gen.runtime.platforms import AttentionBackendEnum
+from sglang.multimodal_gen.runtime.server_args import ServerArgs, set_global_server_args
+from torchtitan.components.inference_config_realization import parser, validate
+from torchtitan.models.duo_realization.modules.intent import (
+    load as load_reference_intent,
+)
+
 from sglang_omni.models.duo.checkpoint import load_causal_realization
 from sglang_omni.models.duo.conditioning import load_intent
 from sglang_omni.models.duo.kernels import use_intent_kernels
 from sglang_omni.models.duo.live import LiveDuoSessionHooks, LiveQwenASR, LiveWhisper
 from sglang_omni.models.duo.live_intent import LiveIntentPlanner
+from sglang_omni.models.duo.live_intent_srt import SRTFrameIntentPlanner
 from sglang_omni.models.duo.media import DuoCodecs
 from sglang_omni.models.duo.media_parallel import ParallelDuoCodecs
 from sglang_omni.models.duo.modes import DUO_DECODE_SPECS, resolve_duo_decode_mode
+from sglang_omni.models.duo.native_execution import NativeDCPOptions
+from sglang_omni.models.duo.reference import (
+    DCPRealizationSessionHooks,
+    FrameIntentPlanner,
+)
+from sglang_omni.models.duo.reference_parallel import ParallelDCPRealizationSessionHooks
+from sglang_omni.models.duo.streaming import RealizationSessionHooks
 from sglang_omni.proto.request import OmniRequest, StagePayload
 from sglang_omni.proto.session import SessionIdentity, SessionLimits, TimedChunk
 from sglang_omni.scheduling.session import SessionContext
@@ -55,7 +66,6 @@ from sglang_omni.serve.realtime.types import (
     Capabilities,
     InteractionAdapter,
     OutputSink,
-    ProtocolError,
     RuntimeLimits,
     Unit,
 )
@@ -87,6 +97,7 @@ class DuoLiveResources:
     inference_lock: threading.Lock = field(default_factory=threading.Lock)
     shutdown: Callable[[], None] | None = None
     supports_realization_kv_reset: bool = False
+    realization_kv_reset_interval_seconds: float = 30.0
     decode_executor: ThreadPoolExecutor | None = None
 
 
@@ -110,7 +121,7 @@ class DuoRealtimeAdapter(InteractionAdapter):
         self.response_id = ""
         self.item_id = ""
         self.decode_mode = "duo_1_4"
-        self.applied_kv_reset_generation = 0
+        self.blocks_since_kv_reset = 0
         self.decode_future: Future[StagePayload] | None = None
         self.delivery_task: asyncio.Task[None] | None = None
         self.delivery_error: Exception | None = None
@@ -136,19 +147,10 @@ class DuoRealtimeAdapter(InteractionAdapter):
         self.delivery_error = None
         self.response_id = f"realization_{session_id}"
         self.item_id = f"{self.response_id}_item"
-        self.applied_kv_reset_generation = 0
+        self.blocks_since_kv_reset = 0
 
     async def update(self, config: SessionConfiguration) -> None:
-        current = self.config.get("sglang", {}).get("realization", {})
-        options = config.get("sglang", {}).get("realization", {})
-        if options.get("kv_reset_generation", 0) < current.get(
-            "kv_reset_generation", 0
-        ):
-            raise ProtocolError(
-                "invalid_request", "Realization KV reset generation cannot decrease"
-            )
-        else:
-            self.config = config
+        self.config = config
 
     async def process(self, unit: Unit) -> int:
         if self.delivery_error is not None:
@@ -174,7 +176,6 @@ class DuoRealtimeAdapter(InteractionAdapter):
         else:
             pass
         options = self.config.get("sglang", {}).get("realization", {})
-        reset_generation = options.get("kv_reset_generation", 0)
         expected_frames = 17 if self.decode_mode == "duo_5_17" else 4
         if len(unit.images) != expected_frames:
             raise ValueError(
@@ -223,6 +224,12 @@ class DuoRealtimeAdapter(InteractionAdapter):
             pass
 
         spec = DUO_DECODE_SPECS[self.decode_mode]
+        reset_interval = self.resources.realization_kv_reset_interval_seconds
+        reset_realization_kv = (
+            self.resources.supports_realization_kv_reset
+            and reset_interval > 0
+            and self.blocks_since_kv_reset * spec.duration_ms >= reset_interval * 1000
+        )
         expected_samples = spec.input_audio_samples
         pcm = unit.pcm[: expected_samples * 2]
         pcm += b"\0" * max(0, expected_samples * 2 - len(pcm))
@@ -242,8 +249,7 @@ class DuoRealtimeAdapter(InteractionAdapter):
                 "height": height,
                 "width": width,
                 "audio_pcm16": pcm,
-                "reset_realization_kv": reset_generation
-                > self.applied_kv_reset_generation,
+                "reset_realization_kv": reset_realization_kv,
             },
             eos=unit.eos,
         )
@@ -255,7 +261,11 @@ class DuoRealtimeAdapter(InteractionAdapter):
         decoded = await asyncio.to_thread(
             self.run_block, request, chunk, payload, context
         )
-        self.applied_kv_reset_generation = reset_generation
+        if reset_realization_kv:
+            self.blocks_since_kv_reset = 0
+        else:
+            pass
+        self.blocks_since_kv_reset += 1
         if self.cancelled.is_set():
             return unit.real_samples
         else:
@@ -541,6 +551,7 @@ def load_duo_live_resources(
     intent_kv_window_tokens: int | None = None,
     realization_kv_window_tokens: int = 65536,
     realization_reference_window_chunks: int = 0,
+    realization_kv_reset_interval_seconds: float = 30.0,
     realization_kv_workspace_capacity_tokens: int | None = None,
     enable_cuda_graph: bool = True,
     realization_enable_cuda_graph: bool = False,
@@ -647,6 +658,11 @@ def load_duo_live_resources(
         raise ValueError("Intent KV window must be positive and fit context capacity")
     elif realization_kv_window_tokens <= 0:
         raise ValueError("Realization KV window must be positive")
+    elif (
+        not math.isfinite(realization_kv_reset_interval_seconds)
+        or realization_kv_reset_interval_seconds < 0
+    ):
+        raise ValueError("Realization KV reset interval must be finite and nonnegative")
     elif realization_reference_window_chunks < 0:
         raise ValueError("Realization reference window must be nonnegative")
     elif realization_reference_window_chunks and realization_checkpoint is None:
@@ -1014,6 +1030,7 @@ def load_duo_live_resources(
             else ("duo_1_4", "duo_5_17")
         ),
         supports_realization_kv_reset=realization_checkpoint is not None,
+        realization_kv_reset_interval_seconds=realization_kv_reset_interval_seconds,
         decode_executor=decode_executor,
     )
 
@@ -1030,7 +1047,6 @@ def build_duo_realtime_deployment(resources: DuoLiveResources) -> RealtimeDeploy
         native_unit_ms=167,
         tail_policy="pad",
         supports_truncate=False,
-        supports_realization_kv_reset=resources.supports_realization_kv_reset,
         default_max_slice_nums=1,
     )
     return RealtimeDeployment(

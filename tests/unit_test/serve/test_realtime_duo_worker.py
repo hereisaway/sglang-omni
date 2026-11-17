@@ -21,6 +21,7 @@ import torch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
+
 from scripts import serve_duo_realtime
 from sglang_omni.models.duo.live import LiveDuoSessionHooks, LiveQwenASR, LiveWhisper
 from sglang_omni.models.duo.live_intent import IntentVisual, LiveIntentPlanner, LivePlan
@@ -43,7 +44,7 @@ from sglang_omni.serve.realtime.output import (
     TurnFailure,
     VideoDelta,
 )
-from sglang_omni.serve.realtime.types import ProtocolError, Unit
+from sglang_omni.serve.realtime.types import Unit
 
 
 @pytest.mark.asyncio
@@ -167,41 +168,68 @@ async def test_realization_worker_keeps_loop_live_and_defers_cleanup() -> None:
 
 
 @pytest.mark.asyncio
-async def test_realization_reset_is_applied_once_at_the_next_block_without_reopening() -> (
-    None
-):
+@pytest.mark.parametrize(
+    "interval_seconds,expected_resets", [(30.0, [43, 86]), (0.0, [])]
+)
+async def test_server_resets_dit_on_generated_media_boundaries(
+    interval_seconds: float, expected_resets: list[int]
+) -> None:
+    """Reset generated history without reopening Intent or requiring a client update."""
     hooks = Mock(spec=LiveDuoSessionHooks)
     adapter = DuoRealtimeAdapter(
-        DuoLiveResources(hooks, max_blocks=4, supports_realization_kv_reset=True)
+        DuoLiveResources(
+            hooks,
+            max_blocks=88,
+            supports_realization_kv_reset=True,
+            realization_kv_reset_interval_seconds=interval_seconds,
+        )
     )
 
     async def emit(event: OutputEvent, unit: Unit | None = None) -> None:
         pass
 
-    await adapter.open("reset-test", {"sglang": {"realization": {"seed": 123}}}, emit)
+    configuration = {"sglang": {"realization": {"seed": 123, "decode": "duo_5_17"}}}
+    await adapter.open("reset-test", configuration, emit)
     with BytesIO() as buffer:
         Image.new("RGB", (32, 32)).save(buffer, format="PNG")
         frame = buffer.getvalue()
-    for block in range(3):
-        if block == 1:
-            await adapter.update(
-                {"sglang": {"realization": {"seed": 123, "kv_reset_generation": 1}}}
+    spec = DUO_DECODE_SPECS["duo_5_17"]
+    try:
+        for block in range(88):
+            await adapter.process(
+                Unit(
+                    block,
+                    block * spec.input_audio_samples,
+                    b"\0\0" * spec.input_audio_samples,
+                    spec.input_audio_samples,
+                    images=(frame,) * 17,
+                )
             )
-        else:
-            pass
+        resets = [
+            index
+            for index, call in enumerate(hooks.append.call_args_list)
+            if call.args[0].payload["reset_realization_kv"]
+        ]
+        assert resets == expected_resets
+        hooks.open.assert_called_once()
+        hooks.close.assert_not_called()
+        assert hooks.open.call_args.args[1].inputs["seed"] == 123
+    finally:
+        await adapter.close()
+    await adapter.open("second-session", configuration, emit)
+    try:
         await adapter.process(
-            Unit(block, block * 2667, b"\0\0" * 2667, 2667, images=(frame,) * 4)
+            Unit(
+                0,
+                0,
+                b"\0\0" * spec.input_audio_samples,
+                spec.input_audio_samples,
+                images=(frame,) * 17,
+            )
         )
-    assert [
-        call.args[0].payload["reset_realization_kv"]
-        for call in hooks.append.call_args_list
-    ] == [False, True, False]
-    hooks.open.assert_called_once()
-    hooks.close.assert_not_called()
-    assert hooks.open.call_args.args[1].inputs["seed"] == 123
-    with pytest.raises(ProtocolError, match="cannot decrease"):
-        await adapter.update({"sglang": {"realization": {"kv_reset_generation": 0}}})
-    await adapter.close()
+        assert not hooks.append.call_args.args[0].payload["reset_realization_kv"]
+    finally:
+        await adapter.close()
 
 
 @pytest.mark.asyncio
@@ -688,12 +716,19 @@ async def test_realization_decode_overlaps_next_plan_and_preserves_delivery_life
     with BytesIO() as image_buffer:
         Image.new("RGB", (32, 32)).save(image_buffer, format="PNG")
         frame = image_buffer.getvalue()
-    with ThreadPoolExecutor(max_workers=1) as executor, ThreadPoolExecutor(
-        max_workers=1
-    ) as input_executor:
+    with (
+        ThreadPoolExecutor(max_workers=1) as executor,
+        ThreadPoolExecutor(max_workers=1) as input_executor,
+    ):
         hooks.input_executor = input_executor
         adapter = DuoRealtimeAdapter(
-            DuoLiveResources(hooks, max_blocks=2, decode_executor=executor)
+            DuoLiveResources(
+                hooks,
+                max_blocks=2,
+                decode_executor=executor,
+                supports_realization_kv_reset=True,
+                realization_kv_reset_interval_seconds=spec.duration_ms / 1000,
+            )
         )
         await adapter.open(
             "overlap", {"sglang": {"realization": {"decode": mode}}}, emit
@@ -712,9 +747,6 @@ async def test_realization_decode_overlaps_next_plan_and_preserves_delivery_life
             await asyncio.wait_for(decoding.wait(), 2)
             assert not events
             if action == "next":
-                await adapter.update(
-                    {"sglang": {"realization": {"kv_reset_generation": 1}}}
-                )
                 unit1 = Unit(
                     1,
                     spec.input_audio_samples,
@@ -756,7 +788,11 @@ async def test_realization_decode_overlaps_next_plan_and_preserves_delivery_life
                     pass
                 await adapter.close()
     if action == "next":
-        assert order.index("plan1") < order.index("decode0-end") < order.index("realization1")
+        assert (
+            order.index("plan1")
+            < order.index("decode0-end")
+            < order.index("realization1")
+        )
         audio_units = [
             unit.index for event, unit in events if isinstance(event, AudioDelta)
         ]

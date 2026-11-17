@@ -20,6 +20,7 @@ import msgspec
 import uvicorn
 from fastapi import FastAPI
 from sglang.srt.utils.common import freeze_gc
+
 from sglang_omni.models.duo.realtime import (
     build_duo_realtime_deployment,
     load_duo_live_resources,
@@ -234,6 +235,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--warmup-sample-directory", type=Path)
     parser.add_argument("--warmup-reference-image", type=Path, action="append")
+    parser.add_argument(
+        "--realization-kv-reset-interval-seconds",
+        type=float,
+        default=30.0,
+        help="Reset DiT history at complete generated-media block boundaries; zero disables automatic reset",
+    )
     parser.add_argument("--warmup-blocks", type=int, default=40)
     parser.add_argument("--warmup-description", type=Path)
     parser.add_argument("--host", default="0.0.0.0")
@@ -284,6 +291,7 @@ def main() -> None:
         intent_kv_window_tokens=args.intent_kv_window_tokens,
         realization_kv_window_tokens=args.realization_kv_window_tokens,
         realization_reference_window_chunks=args.realization_reference_window_chunks,
+        realization_kv_reset_interval_seconds=args.realization_kv_reset_interval_seconds,
         realization_kv_workspace_capacity_tokens=args.realization_kv_workspace_capacity_tokens,
         realization_enable_cuda_graph=args.realization_enable_cuda_graph,
         realization_optimize_copy_sync=args.realization_optimize_copy_sync,
@@ -322,7 +330,7 @@ def main() -> None:
     def realization_configuration() -> dict[str, str | bool | int]:
         prefix, suffix = resources.hooks.planner.system_prompt_fragments()
         return {
-            "realization_kv_reset_supported": resources.supports_realization_kv_reset,
+            "realization_kv_reset_interval_seconds": resources.realization_kv_reset_interval_seconds,
             "system_prompt_prefix": prefix,
             "system_prompt_suffix": suffix,
             "video_lookahead_blocks": resources.hooks.codecs.video_lookahead_blocks,

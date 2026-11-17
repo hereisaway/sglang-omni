@@ -8,9 +8,10 @@ import numpy as np
 import torch
 from accelerate import dispatch_model
 from peft import PeftModel
-from sglang_omni.models.duo import intent_conditioning_compat as intent_conditioning
 from transformers import Qwen3VLForConditionalGeneration, Qwen3VLProcessor
 from transformers.cache_utils import Cache
+
+from sglang_omni.models.duo import intent_conditioning_compat as intent_conditioning
 
 
 class IntentVisual(TypedDict):
