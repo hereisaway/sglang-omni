@@ -123,6 +123,7 @@ class Capabilities:
     voices: tuple[str, ...] = ()
     supports_instruction_updates: bool = False
     supports_sampling_updates: bool = False
+    supports_realization_kv_reset: bool = False
     supports_truncate: bool = False
     supports_cancel: bool = False
     supports_client_commit: bool = False

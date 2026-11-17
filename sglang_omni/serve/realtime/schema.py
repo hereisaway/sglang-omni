@@ -71,6 +71,21 @@ class AudioConfig(TypedDict, total=False):
     output: AudioOutputConfig
 
 
+class RealizationDescription(TypedDict, total=False):
+    appearance: str
+    environment: str
+    initial_pose: str
+
+
+class RealizationSessionConfig(TypedDict, total=False):
+    description: RealizationDescription
+    seed: Annotated[int, Field(ge=0, le=4294967295)]
+    kv_reset_generation: Annotated[int, Field(ge=0)]
+    sample_id: str
+    decode: Literal["duo_1_4", "duo_5_17"]
+    reference_image: str
+
+
 class TimebaseConfig(TypedDict, total=False):
     microturn_ms: Annotated[float, Field(gt=0)] | None
     native_unit_ms: int
@@ -142,6 +157,7 @@ class SessionExtension(TypedDict, total=False):
     reference_audio: AudioReference
     tts_reference_audio: AudioReference
     max_slice_nums: Annotated[int, Field(ge=1)]
+    realization: RealizationSessionConfig
 
 
 class SessionConfiguration(TypedDict, total=False):

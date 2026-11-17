@@ -104,6 +104,7 @@ class SessionRuntime:
         self.next_unit_index = 0
         # note (wenyao): A turn-based session ends turns with its own VAD, so holding audio until a unit fills would end turns up to a unit late.
         self.forwards_partial_units = capabilities.interaction == "turn_based"
+        self.unit_samples = capabilities.native_unit_bytes // PCM16_BYTES_PER_SAMPLE
         self.open_unit_samples = 0
         self.open_unit_start_sample = 0
         self.cleared_unit_receipt: Unit | None = None
@@ -124,6 +125,29 @@ class SessionRuntime:
         self.processing_unit: ContextVar[Unit | None] = ContextVar(
             "realtime_unit", default=None
         )
+
+    @property
+    def unit_bytes(self) -> int:
+        return self.unit_samples * PCM16_BYTES_PER_SAMPLE
+
+    @property
+    def unit_ms(self) -> float:
+        return self.capabilities.input_duration_ms(self.unit_samples)
+
+    def configure_unit_cadence(self, config: SessionConfiguration) -> None:
+        """Select the media unit size before the adapter starts consuming input."""
+        realization = config.get("sglang", {}).get("realization", {})
+        decode = realization.get("decode")
+        if decode == "duo_5_17":
+            self.unit_samples = round(self.capabilities.input_sample_rate_hz * 17 / 24)
+        elif "realization" in config.get("sglang", {}):
+            self.unit_samples = round(self.capabilities.input_sample_rate_hz * 4 / 24)
+        else:
+            self.unit_samples = (
+                self.capabilities.input_sample_rate_hz
+                * self.capabilities.native_unit_ms
+                // 1000
+            )
 
     @property
     def pending_samples(self) -> int:
@@ -237,6 +261,7 @@ class SessionRuntime:
                 self.config, self.state, patch
             )
             if self.state == "CREATED":
+                self.configure_unit_cadence(candidate)
                 adapter = self.adapter_factory()
                 adapter.set_limits(self.limits)
                 self.is_admitting = True
@@ -359,13 +384,13 @@ class SessionRuntime:
             else:
                 pass
             pending_unit_count_before = (
-                self.uncut_unit_bytes // self.capabilities.native_unit_bytes
+                self.uncut_unit_bytes // self.unit_bytes
             )
             self.pending_pcm.extend(pcm)
             self.accepted_samples += len(pcm) // PCM16_BYTES_PER_SAMPLE
             self.next_append_sequence += 1
             pending_unit_count_after = (
-                self.uncut_unit_bytes // self.capabilities.native_unit_bytes
+                self.uncut_unit_bytes // self.unit_bytes
             )
             newly_ready_unit_count = (
                 pending_unit_count_after - pending_unit_count_before
@@ -394,11 +419,11 @@ class SessionRuntime:
                 self.accepted_samples - self.pending_samples - self.open_unit_samples
             )
             pending_unit_offset = math.floor(
-                (t_ms - pending_start_ms) / self.capabilities.native_unit_ms
+                (t_ms - pending_start_ms) / self.unit_ms
             )
             unit_index = self.next_unit_index + pending_unit_offset
             pending_units = math.ceil(
-                self.uncut_unit_bytes / self.capabilities.native_unit_bytes
+                self.uncut_unit_bytes / self.unit_bytes
             )
             if "image" not in self.capabilities.input_modalities:
                 raise ProtocolError("not_supported", "image input is not granted")
@@ -494,7 +519,7 @@ class SessionRuntime:
             if self.is_input_ended:
                 raise ProtocolError("invalid_state", "audio input already ended")
             elif self.capabilities.tail_policy == "reject" and (
-                self.uncut_unit_bytes % self.capabilities.native_unit_bytes
+                self.uncut_unit_bytes % self.unit_bytes
             ):
                 raise ProtocolError(
                     "invalid_state", "partial native unit; append more audio before EOS"
@@ -503,10 +528,10 @@ class SessionRuntime:
                 pass
             self.is_input_ended = True
             pending_unit_count = (
-                self.uncut_unit_bytes // self.capabilities.native_unit_bytes
+                self.uncut_unit_bytes // self.unit_bytes
             )
             has_partial_unit = bool(
-                self.uncut_unit_bytes % self.capabilities.native_unit_bytes
+                self.uncut_unit_bytes % self.unit_bytes
             )
             if has_partial_unit:
                 self.mark_ready_units(self.next_unit_index + pending_unit_count, 1)
@@ -530,7 +555,7 @@ class SessionRuntime:
 
         A session forwarding partial units cuts the pending audio up to the end of its unit; any other session cuts whole units.
         """
-        unit_bytes = self.capabilities.native_unit_bytes
+        unit_bytes = self.unit_bytes
         unit_pcm_bytes = min(
             unit_bytes - self.open_unit_samples * PCM16_BYTES_PER_SAMPLE,
             len(self.pending_pcm),
@@ -613,7 +638,7 @@ class SessionRuntime:
                             not self.pending_pcm
                             if self.forwards_partial_units
                             else len(self.pending_pcm)
-                            < self.capabilities.native_unit_bytes
+                            < self.unit_bytes
                         )
                     ):
                         continue

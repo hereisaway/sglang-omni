@@ -35,6 +35,12 @@ def admission_fields(
     admission_config = copy.deepcopy(config)
     admission_config.pop("output_modalities", None)
     admission_config.get("audio", {}).get("input", {}).pop("turn_detection", None)
+    if capabilities.supports_realization_kv_reset:
+        admission_config.get("sglang", {}).get("realization", {}).pop(
+            "kv_reset_generation", None
+        )
+    else:
+        pass
     if capabilities.supports_instruction_updates:
         admission_config.pop("instructions", None)
     else:
@@ -154,6 +160,13 @@ class SessionNegotiation:
 
     def validate_extension(self, candidate: SessionConfiguration) -> None:
         extension = candidate.get("sglang", {})
+        if (
+            "kv_reset_generation" in extension.get("realization", {})
+            and not self.capabilities.supports_realization_kv_reset
+        ):
+            raise ProtocolError("not_applicable", "Realization KV reset is unavailable")
+        else:
+            pass
         unsupported_sampling = set(extension.get("sampling", {})) - set(
             self.capabilities.sampling_parameters
         )
@@ -222,12 +235,26 @@ class SessionNegotiation:
     ) -> tuple[SessionConfiguration, GrantedCapabilities]:
         granted = self.capabilities.to_granted_capabilities()
         if "image" in self.capabilities.input_modalities:
+            realization = candidate.get("sglang", {}).get("realization", {})
+            default_slice_count = (
+                2
+                if realization.get("decode") == "duo_5_17"
+                else self.capabilities.default_max_slice_nums
+            )
             slice_count = candidate.get("sglang", {}).get(
-                "max_slice_nums", self.capabilities.default_max_slice_nums
+                "max_slice_nums", default_slice_count
             )
             granted["input_image_format"]["max_frames_per_unit"] = (
                 self.capabilities.image_frames_per_unit[slice_count - 1]
             )
+        else:
+            pass
+        if (
+            candidate.get("sglang", {}).get("realization", {}).get("decode")
+            == "duo_5_17"
+        ):
+            granted["native_unit_ms"] = round(1000 * 17 / 24)
+            granted["first_unit_ms"] = round(1000 * 17 / 24)
         else:
             pass
         granted.update(
