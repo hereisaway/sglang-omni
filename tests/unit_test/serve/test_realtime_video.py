@@ -374,7 +374,12 @@ def test_fractional_video_cadence_cuts_exact_audio_samples(
     slice_count: int, sample_count: int
 ) -> None:
     """Rounding 17/24 seconds to integer milliseconds used to cut input early."""
-    adapter = ScriptedAdapter(reply=[ResponseStarted("response"), ResponseFinished("response", "item", "", False, "completed", "stop")])
+    adapter = ScriptedAdapter(
+        reply=[
+            ResponseStarted("response"),
+            ResponseFinished("response", "item", "", False, "completed", "stop"),
+        ]
+    )
     capabilities = Capabilities(
         input_modalities=("audio", "image"),
         image_frames_per_unit=(4, 17),
@@ -384,13 +389,28 @@ def test_fractional_video_cadence_cuts_exact_audio_samples(
     with build_test_client(adapter, capabilities=capabilities) as client:
         with client.websocket_connect("/v1/realtime") as websocket:
             assert websocket.receive_json()["type"] == "session.created"
-            send_event(websocket, "session.update", session={"sglang": {"max_slice_nums": slice_count}})
+            send_event(
+                websocket,
+                "session.update",
+                session={"sglang": {"max_slice_nums": slice_count}},
+            )
             updated = receive_until(websocket, "session.updated")[-1]
-            assert updated["session"]["sglang"]["granted"]["native_unit_ms"] == round(sample_count / 16)
+            assert updated["session"]["sglang"]["granted"]["native_unit_ms"] == round(
+                sample_count / 16
+            )
             for index in range(2):
                 response_id = f"response_{index}"
-                adapter.reply = [ResponseStarted(response_id), ResponseFinished(response_id, "item", "", False, "completed", "stop")]
-                append_audio(websocket, pcm[index * sample_count * 2:(index + 1) * sample_count * 2], index)
+                adapter.reply = [
+                    ResponseStarted(response_id),
+                    ResponseFinished(
+                        response_id, "item", "", False, "completed", "stop"
+                    ),
+                ]
+                append_audio(
+                    websocket,
+                    pcm[index * sample_count * 2 : (index + 1) * sample_count * 2],
+                    index,
+                )
                 receive_until(websocket, "response.done")
     assert [unit.real_samples for unit in adapter.units] == [sample_count, sample_count]
     assert [unit.start_sample for unit in adapter.units] == [0, sample_count]

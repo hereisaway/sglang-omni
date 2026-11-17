@@ -28,10 +28,10 @@ from sglang_omni.models.duo.streaming import (
     discard_latents,
     segment_from_h50,
 )
-from sglang_omni.serve.protocol import TranscriptionResponse
 from sglang_omni.proto.request import OmniRequest, StagePayload
 from sglang_omni.proto.session import ResourceUsage, SessionIdentity, TimedChunk
 from sglang_omni.scheduling.session import SessionContext, SessionHooks
+from sglang_omni.serve.protocol import TranscriptionResponse
 
 logger = logging.getLogger(__name__)
 

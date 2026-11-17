@@ -838,3 +838,25 @@ def test_realization_workspace_rejects_incompatible_reservation_before_loading_w
             intent_backend="native",
             realization_kv_workspace_capacity_tokens=capacity,
         )
+
+
+@pytest.mark.asyncio
+async def test_wrong_reference_shape_does_not_reach_parallel_workers() -> None:
+    """A wrong-sized reference previously stopped all persistent DiT ranks."""
+    hooks = Mock(spec=LiveDuoSessionHooks)
+    adapter = DuoRealtimeAdapter(DuoLiveResources(hooks, 4, reference_size=(64, 64)))
+
+    async def emit(event: OutputEvent, unit: Unit | None = None) -> None:
+        pass
+
+    await adapter.open("wrong-reference", {}, emit)
+    with BytesIO() as buffer:
+        Image.new("RGB", (32, 32)).save(buffer, format="PNG")
+        image = buffer.getvalue()
+    try:
+        with pytest.raises(ValueError, match="Reference height and width"):
+            await adapter.process(Unit(0, 0, bytes(5334), 2667, images=(image,) * 4))
+        hooks.open.assert_not_called()
+        hooks.append.assert_not_called()
+    finally:
+        await adapter.close()

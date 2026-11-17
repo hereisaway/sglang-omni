@@ -98,6 +98,7 @@ class DuoLiveResources:
     shutdown: Callable[[], None] | None = None
     supports_realization_kv_reset: bool = False
     realization_kv_reset_interval_seconds: float = 30.0
+    reference_size: tuple[int, int] | None = None
     decode_executor: ThreadPoolExecutor | None = None
 
 
@@ -212,6 +213,15 @@ class DuoRealtimeAdapter(InteractionAdapter):
                 if "reference_image" in options
                 else frames[0]
             )
+            if (
+                self.resources.reference_size is not None
+                and reference.shape[:2] != self.resources.reference_size
+            ):
+                raise ValueError(
+                    f"Reference height and width must be {self.resources.reference_size}, got {reference.shape[:2]}"
+                )
+            else:
+                pass
             request = OmniRequest(
                 {
                     "reference_rgb": reference.tobytes(),
@@ -1033,6 +1043,7 @@ def load_duo_live_resources(
         ),
         supports_realization_kv_reset=realization_checkpoint is not None,
         realization_kv_reset_interval_seconds=realization_kv_reset_interval_seconds,
+        reference_size=(height, width),
         decode_executor=decode_executor,
     )
 
