@@ -374,7 +374,7 @@ def test_fractional_video_cadence_cuts_exact_audio_samples(
     slice_count: int, sample_count: int
 ) -> None:
     """Rounding 17/24 seconds to integer milliseconds used to cut input early."""
-    adapter = ScriptedAdapter(reply=[ResponseStarted("response"), ResponseFinished("response")])
+    adapter = ScriptedAdapter(reply=[ResponseStarted("response"), ResponseFinished("response", "item", "", False, "completed", "stop")])
     capabilities = Capabilities(
         input_modalities=("audio", "image"),
         image_frames_per_unit=(4, 17),
