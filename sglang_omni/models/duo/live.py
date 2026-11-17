@@ -28,7 +28,7 @@ from sglang_omni.models.duo.streaming import (
     discard_latents,
     segment_from_h50,
 )
-from sglang_omni.models.streaming_cascade.recognizers import TranscriptionResult
+from sglang_omni.serve.protocol import TranscriptionResponse
 from sglang_omni.proto.request import OmniRequest, StagePayload
 from sglang_omni.proto.session import ResourceUsage, SessionIdentity, TimedChunk
 from sglang_omni.scheduling.session import SessionContext, SessionHooks
@@ -128,7 +128,7 @@ class LiveQwenASR:
         )
         response.raise_for_status()
         return (
-            TranscriptionResult.model_validate_json(response.content)
+            TranscriptionResponse.model_validate_json(response.content)
             .text.strip()
             .rstrip("。．.")
         )

@@ -387,9 +387,11 @@ def test_fractional_video_cadence_cuts_exact_audio_samples(
             send_event(websocket, "session.update", session={"sglang": {"max_slice_nums": slice_count}})
             updated = receive_until(websocket, "session.updated")[-1]
             assert updated["session"]["sglang"]["granted"]["native_unit_ms"] == round(sample_count / 16)
-            append_audio(websocket, pcm, 0)
-            receive_until(websocket, "response.done")
-            receive_until(websocket, "response.done")
+            for index in range(2):
+                response_id = f"response_{index}"
+                adapter.reply = [ResponseStarted(response_id), ResponseFinished(response_id, "item", "", False, "completed", "stop")]
+                append_audio(websocket, pcm[index * sample_count * 2:(index + 1) * sample_count * 2], index)
+                receive_until(websocket, "response.done")
     assert [unit.real_samples for unit in adapter.units] == [sample_count, sample_count]
     assert [unit.start_sample for unit in adapter.units] == [0, sample_count]
     assert b"".join(unit.pcm for unit in adapter.units) == pcm
